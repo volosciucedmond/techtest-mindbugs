@@ -1,5 +1,6 @@
 import logging
 from app.llm import extract_insights
+from app.embeddings import deduplicate
 
 logger = logging.getLogger(__name__)
 
@@ -8,14 +9,24 @@ def process_reviews(reviews: list[str]) -> dict:
     all_pain_points = []
     
     for idx, review in enumerate(reviews):
-        logger.info(f"Processing review {idx + 1}/{len(reviews)}")
+        logger.info(f"[{idx + 1}/{len(reviews)}] Extracting insights...")
         insights = extract_insights(review)
         
-        all_highlights.extend(insights.get("highlights", []))
-        all_pain_points.extend(insights.get("pain_points", []))
+        h_val = insights.get("highlights", [])
+        p_val = insights.get("pain_points", [])
         
-    # return a raw list
+        # Simple, readable loops that ignore hallucinated dictionaries
+        for h in h_val:
+            if isinstance(h, str): 
+                all_highlights.append(h)
+                
+        for p in p_val:
+            if isinstance(p, str): 
+                all_pain_points.append(p)
+        
+    logger.info("Starting semantic deduplication...")
+    
     return {
-        "highlights": [{"item": h, "count": 1} for h in all_highlights],
-        "pain_points": [{"item": p, "count": 1} for p in all_pain_points]
+        "highlights": deduplicate(all_highlights),
+        "pain_points": deduplicate(all_pain_points)
     }

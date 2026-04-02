@@ -1,4 +1,3 @@
-
 import requests
 import logging
 import json
@@ -8,30 +7,30 @@ logger = logging.getLogger(__name__)
 OLLAMA_BASE_URL = "http://ollama:11434"
 MODEL_NAME = "llama3.2:1b"
 
-EXTRACTION_PROMPT = """You are a hotel review analyst. Given a hotel review, extract:
-- highlights: a list of short phrases describing what the guest liked (positives)
-- pain_points: a list of short phrases describing what the guest disliked (negatives)
+EXTRACTION_PROMPT = """[INST] <<SYS>>
+Extract key highlights and pain points from the review.
+Rules:
+- Output ONLY short 2-4 word phrases (e.g., "Clean room", "Slow check-in").
+- Do not output nested dictionaries.
+<</SYS>>
 
-Respond ONLY with valid JSON in this exact format, no explanation:
+Review: "{review}"
+
+Return EXACTLY this JSON format:
 {{
   "highlights": ["phrase 1", "phrase 2"],
-  "pain_points": ["phrase 1", "phrase 2"]
+  "pain_points": ["phrase 1"]
 }}
-
-Review:
-{review}"""
-
+[/INST]"""
 
 def extract_insights(review: str) -> dict:    
     prompt = EXTRACTION_PROMPT.format(review=review)
-    
     payload = {
         "model": MODEL_NAME,
         "prompt": prompt,
         "stream": False,
-        "format": "json" # tells ollama to guarantee json output
+        "format": "json" 
     }
-    
     try:
         response = requests.post(f"{OLLAMA_BASE_URL}/api/generate", json=payload, timeout=120)
         response.raise_for_status()
@@ -43,7 +42,4 @@ def extract_insights(review: str) -> dict:
         }
     except Exception as e:
         logger.error(f"Extraction failed: {e}")
-        return {
-            "highlights": [],
-            "pain_points": []
-        }
+        return {"highlights": [], "pain_points": []}
