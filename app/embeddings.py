@@ -22,7 +22,7 @@ def get_model() -> SentenceTransformer:
     return _model
 
 def cosine_similarity(vec_a: np.ndarray, vec_b: np.ndarray) -> float:
-    # calculates how similar two vecotrs are
+    # calculates how similar two vecotrs are (1.0 = identical)
     norm_a = np.linalg.norm(vec_a)
     norm_b = np.linalg.norm(vec_b)
     if norm_a == 0 or norm_b == 0:
@@ -34,11 +34,13 @@ def deduplicate(items: list[str]) -> list[dict]:
     if not items:
         return []
     
+    # basic cleaning to remove "noise" words
     cleaned = [i.lower().replace("the ", "").replace(".", "").strip() for i in items]
     
     model = get_model()
     logger.info(f"Generating embeddings for {len(items)} items...")
     
+    # transform text into numerical vector
     embeddings = model.encode(cleaned, convert_to_numpy=True)
     
     assigned = [False] * len(items)
@@ -52,13 +54,14 @@ def deduplicate(items: list[str]) -> list[dict]:
         cluster_indices =[i]
         assigned[i] = True
         
-        # expand cluster 
+        # expand cluster by looking at semantic similarity of unassigned items
         for j in range(i + 1, len(items)):
             if assigned[j]:
                 continue
             
             # check siilarity 
             is_similar = False
+            # compare against all items in the current cluster
             for k in cluster_indices:
                 sim = cosine_similarity(embeddings[k], embeddings[j])
                 if sim >= SIMILIARITY_THRESHOLD:
@@ -70,10 +73,8 @@ def deduplicate(items: list[str]) -> list[dict]:
                 assigned[j] = True
                 logger.debug(f"Merged '{items[j]}' into cluster with '{items[i]}'")
                 
-        # build group
+        # build group using the first item as label
         cluster_items = [items[idx] for idx in cluster_indices]
-        
-        # choose representative phrase 
         representative = cluster_items[0]
         
         groups.append({
